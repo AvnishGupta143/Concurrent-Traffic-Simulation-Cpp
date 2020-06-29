@@ -75,13 +75,10 @@ void TrafficLight::cycleThroughPhases()
     // to the message queue using move semantics. The cycle duration should be a random value between 4 and 6 seconds. 
     // Also, the while-loop should use std::this_thread::sleep_for to wait 1ms between two cycles.
 
-    std::unique_lock<std::mutex> uLock(_mtx);
-    uLock.unlock();
-
-	/* Init our random generation between 4 and 6 seconds */
-	std::random_device rd;
-	std::mt19937 eng(rd());
-	std::uniform_int_distribution<> distr(4000, 6000);
+    /* Init our random generation between 4 and 6 seconds */
+    std::random_device rd;
+    std::mt19937 eng(rd());
+    std::uniform_int_distribution<> distr(4000, 6000);
 
     //cycle duration between traffic light toggle in ms
     double cycle_duration = distr(eng); //Duration of a single simulation cycle in seconds, is randomly chosen
@@ -99,21 +96,23 @@ void TrafficLight::cycleThroughPhases()
         {
 
             //Toggle the phase
+	    std::unique_lock<std::mutex> uLock(_mtx);
             if(_currentPhase == TrafficLightPhase::red)
             {
                 _currentPhase = TrafficLightPhase::green;
 		std::cout << "Traffic Light #" << _id << "Green" << std::endl;
+		uLock.unlock();
             }
             else
             {
                 _currentPhase = TrafficLightPhase::red;
 		std::cout << "Traffic Light #" << _id << " Red" << std::endl;
+		uLock.unlock();
             }
             
             //send update to message queue
             auto msg = _currentPhase;
-            std::future<void> updateMsgQueue = std::async(std::launch::async, &MessageQueue<TrafficLightPhase>::send, &_msg_queue, std::move(msg));
-            updateMsgQueue.wait();
+            _msg_queue.send(std::move(msg));
 
             //Reset the stop watch
             lastUpdate = std::chrono::system_clock::now();
